@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { OSState, KnowledgeNode } from '../types';
 import { KnowledgeGraph } from './KnowledgeGraph';
@@ -116,7 +115,7 @@ export const DeploymentStatus: React.FC<MeshProps> = ({ currentOS, onUpdateOS })
                         </div>
 
                         {/* TTPs Section */}
-                        <div>
+                        <div className="mb-3">
                             <label className="block text-[9px] text-gray-500 mb-1">MITRE ATT&CK TTPs</label>
                             <div className="flex flex-wrap gap-1 mb-2">
                                 {(selectedNode.ttps || []).map((ttp, idx) => (
@@ -146,6 +145,19 @@ export const DeploymentStatus: React.FC<MeshProps> = ({ currentOS, onUpdateOS })
                                     onClick={handleAddTTP}
                                     className="bg-cyber-gray hover:bg-gray-700 border border-gray-600 text-gray-300 px-2 rounded"
                                 >+</button>
+                            </div>
+                        </div>
+
+                         {/* PoCs Section */}
+                        <div>
+                            <label className="block text-[9px] text-gray-500 mb-1">GENERATED EXPLOIT PoCS</label>
+                            <div className="flex flex-col gap-1 mb-2">
+                                {(selectedNode.pocs || []).map((poc, idx) => (
+                                    <span key={idx} className="bg-red-900/20 border border-red-900/50 px-2 py-1 rounded text-[9px] text-red-300 font-mono flex justify-between items-center">
+                                        <span className="truncate">{poc}</span>
+                                    </span>
+                                ))}
+                                {(selectedNode.pocs || []).length === 0 && <span className="text-gray-600 text-[9px] italic">No PoCs generated.</span>}
                             </div>
                         </div>
                     </div>

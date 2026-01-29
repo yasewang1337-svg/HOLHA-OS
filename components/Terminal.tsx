@@ -1,7 +1,6 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
-import { generateOSState, runNmapNeuron, connectMCPServer, dispatchTask, consultCortex, activateProjectSimulation } from '../services/geminiService';
+import { generateOSState, runNmapNeuron, connectMCPServer, dispatchTask, consultCortex, activateProjectSimulation, fineTuneExploitModel } from '../services/geminiService';
 import { OSState } from '../types';
 
 interface TerminalProps {
@@ -52,6 +51,7 @@ export const Terminal: React.FC<TerminalProps & { currentOS: OSState | null }> =
                 { type: 'out', text: '  dispatch <task>     :: Route via Intelligent Gateway' },
                 { type: 'out', text: '  ask <query>         :: Consult Cortex (Thinking Mode)' },
                 { type: 'out', text: '  nmap <target>       :: Execute Nmap Neuron' },
+                { type: 'out', text: '  train <dataset>     :: Fine-tune Exploit LLM on new data' },
              ]);
              setLoading(false);
              return;
@@ -72,6 +72,8 @@ export const Terminal: React.FC<TerminalProps & { currentOS: OSState | null }> =
         } else if (cmd.startsWith('nmap')) {
             // Default to STANDARD mode if not specified
             osState = await runNmapNeuron(args[1] || '127.0.0.1', 'STANDARD');
+        } else if (cmd.startsWith('train')) {
+             osState = await fineTuneExploitModel(cmd.replace('train ', ''));
         } else {
             osState = await generateOSState(cmd);
         }

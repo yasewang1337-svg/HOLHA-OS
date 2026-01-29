@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { KnowledgeNode } from '../types';
@@ -13,8 +12,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   
-  // Track discovery time of nodes to highlight fresh intel (Value -> Timestamp)
-  const freshnessMap = useRef<Map<string, number>>(new Map());
+  // Track discovery/update time of nodes (Key -> { LastUpdate, Hash, CreatedAt })
+  const freshnessMap = useRef<Map<string, { ts: number, hash: string, createdAt: number }>>(new Map());
   
   // Store previous simulation positions to prevent layout reset on updates
   const prevNodesRef = useRef<Map<string, d3.SimulationNodeDatum>>(new Map());
@@ -30,20 +29,33 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
     const now = Date.now();
     const FRESHNESS_WINDOW = 10000; // 10 seconds to fade out
 
-    // 1. Update Freshness Tracking
+    // 1. Update Freshness Tracking (Detect New vs Updated)
     if (data) {
         data.forEach(d => {
             const key = `${d.type}::${d.value}`;
-            // Only set timestamp if we haven't seen this node before
-            if (!freshnessMap.current.has(key)) {
-                freshnessMap.current.set(key, now);
+            // Hash content to detect meaningful updates (ignoring volatile utility/physics props)
+            const contentHash = JSON.stringify({
+                actor: d.threat_actor,
+                ttps: d.ttps,
+                pocs: d.pocs, // Include PoCs in hash to detect new exploit generation
+                type: d.type
+            });
+
+            const existing = freshnessMap.current.get(key);
+            
+            if (!existing) {
+                // New Discovery
+                freshnessMap.current.set(key, { ts: now, hash: contentHash, createdAt: now });
+            } else if (existing.hash !== contentHash) {
+                // Content Update (e.g. Attribution added)
+                freshnessMap.current.set(key, { ts: now, hash: contentHash, createdAt: existing.createdAt });
             }
         });
     }
 
     let minTimeToExpiration = Infinity;
 
-    // 2. Prepare Data with Freshness Ratio
+    // 2. Prepare Data with Freshness Metrics
     const centerNode = { 
         id: 'TARGET', 
         type: 'ROOT', 
@@ -51,6 +63,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
         r: 15, 
         color: '#ffffff', 
         isFresh: false,
+        isNew: false,
         freshnessRatio: 0,
         x: prevNodesRef.current.get('TARGET')?.x || width / 2,
         y: prevNodesRef.current.get('TARGET')?.y || height / 2,
@@ -60,10 +73,14 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
         centerNode,
         ...(data || []).map((d) => {
             const key = `${d.type}::${d.value}`;
-            const discoveredAt = freshnessMap.current.get(key) || 0;
+            const entry = freshnessMap.current.get(key);
+            
+            const discoveredAt = entry ? entry.ts : 0;
             const age = now - discoveredAt;
             const isFresh = age < FRESHNESS_WINDOW;
-            // Ratio goes from 1.0 (just found) to 0.0 (10s old)
+            const isNew = entry ? (Math.abs(entry.createdAt - entry.ts) < 100) : true; // Tolerance for slight diffs, or strictly equal
+
+            // Ratio goes from 1.0 (just updated) to 0.0 (10s old)
             const freshnessRatio = isFresh ? Math.max(0, 1 - (age / FRESHNESS_WINDOW)) : 0;
             
             if (isFresh) {
@@ -80,7 +97,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
             if (d.type === 'VULN') baseColor = '#ff003c';
             else if (d.type === 'CREDENTIAL') baseColor = '#f59e0b';
             
-            // If the node has a threat actor profile, it glows purple/red
+            // If the node has a threat actor profile, it glows purple
             if (d.threat_actor) baseColor = '#bd00ff';
 
             return {
@@ -89,6 +106,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
                 r: d.type === 'VULN' ? 8 : 5,
                 color: baseColor,
                 isFresh,
+                isNew,
                 freshnessRatio,
                 // Preserve physics state if available
                 x: prevNode?.x,
@@ -155,7 +173,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
               value: d.value,
               current_utility: d.current_utility,
               threat_actor: d.threat_actor,
-              ttps: d.ttps
+              ttps: d.ttps,
+              pocs: d.pocs
           };
           if (d.type !== 'ROOT' && onNodeSelect) {
               onNodeSelect(originalNode);
@@ -167,12 +186,13 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
     nodeGroup.filter((d: any) => d.isFresh && d.type !== 'ROOT')
       .each(function(d: any) {
           const g = d3.select(this);
+          const color = d.isNew ? d.color : '#00ff9d'; // Use green for updates, base color for new
           
           const repeatRipple = () => {
               // Create a circle that expands and fades
               g.append("circle")
                .attr("r", d.r)
-               .attr("stroke", d.color)
+               .attr("stroke", color)
                .attr("stroke-width", 2)
                .attr("fill", "none")
                .attr("opacity", d.freshnessRatio) // Fade base opacity with age
@@ -183,9 +203,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
                .attr("opacity", 0)  // Fade out
                .remove()
                .on("end", () => {
-                   // Continue pulsing if still considered fresh
-                   // We use the boolean isFresh here, but in reality 
-                   // we might want to check if component is still mounted
                    if (d.isFresh) {
                        repeatRipple();
                    }
@@ -201,7 +218,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
       .append("circle")
       .attr("r", (d: any) => d.r + 6)
       .attr("fill", "none")
-      .attr("stroke", (d: any) => d.color)
+      .attr("stroke", (d: any) => d.isNew ? d.color : '#00ff9d')
       .attr("stroke-width", 1)
       .attr("opacity", (d: any) => d.freshnessRatio * 0.6)
       .attr("class", "animate-pulse-fast");
@@ -217,13 +234,13 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
       .attr("stroke-width", 1)
       .attr("class", "animate-spin-slow");
 
-    // --- NEW LABEL ---
+    // --- TEMPORAL LABEL (NEW vs UPD) ---
     nodeGroup.filter((d: any) => d.isFresh && d.type !== 'ROOT')
       .append("text")
-      .text("NEW")
+      .text((d: any) => d.isNew ? "NEW" : "UPD")
       .attr("x", 12)
       .attr("y", -12)
-      .attr("fill", "#00ff9d")
+      .attr("fill", (d: any) => d.isNew ? "#00ff9d" : "#00f0ff") // Green for NEW, Cyan for UPD
       .attr("font-size", "7px")
       .attr("font-weight", "bold")
       .attr("font-family", "monospace")
@@ -275,7 +292,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ data, onNodeSele
     // Schedule updates for smoothness of fading
     let timeoutId: NodeJS.Timeout;
     if (minTimeToExpiration !== Infinity) {
-        // Update at least every second to refresh freshnessRatio
         timeoutId = setTimeout(() => {
             setTick(t => t + 1);
         }, 1000); 

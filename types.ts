@@ -1,5 +1,4 @@
 
-
 export enum KernelID {
   CORTEX_PREFRONTAL = 'PREFRONTAL_CORTEX', // 前额叶：负责决策、指挥、目标分析
   CORTEX_TEMPORAL = 'TEMPORAL_LOBE',       // 颞叶：负责模式识别、解码、语言处理
@@ -192,6 +191,7 @@ export interface KnowledgeNode {
   current_utility: number;
   threat_actor?: string; // e.g. "APT-29", "Lazarus Group"
   ttps?: string[]; // e.g. ["T1059", "T1190"]
+  pocs?: string[]; // e.g. ["CVE-2024-XXXX PoC", "Heap Spray v2"]
 }
 
 export interface OSState {

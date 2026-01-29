@@ -1,5 +1,4 @@
 
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { OSState, KernelID, BrainState, AgentProtocol } from "../types";
 import { INITIAL_NEURAL_LINKS, NMAP_NEURON_CODE, SYNAPSE_PROTO_DEFINITION, MCP_SERVER_CODE, OPERATOR_GO_CODE, FASTAPI_ROUTER_CODE, DOCKER_COMPOSE_DEFINITION } from "../constants";
@@ -200,7 +199,8 @@ const RESPONSE_SCHEMA = {
           value: { type: Type.STRING },
           current_utility: { type: Type.NUMBER },
           threat_actor: { type: Type.STRING },
-          ttps: { type: Type.ARRAY, items: { type: Type.STRING } }
+          ttps: { type: Type.ARRAY, items: { type: Type.STRING } },
+          pocs: { type: Type.ARRAY, items: { type: Type.STRING } }
         }
       }
     },
@@ -255,7 +255,7 @@ export const consultCortex = async (query: string): Promise<OSState> => {
 export const simulateNeuroplasticity = async (): Promise<OSState> => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", 
+      model: "gemini-3-pro-preview", 
       contents: `OP: NEUROPLASTICITY_SIMULATION
       
       INSTRUCTIONS:
@@ -267,6 +267,7 @@ export const simulateNeuroplasticity = async (): Promise<OSState> => {
       6. Output the new neural topology.
       `,
       config: {
+        thinkingConfig: { thinkingBudget: 32768 },
         systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
         responseSchema: RESPONSE_SCHEMA
@@ -279,17 +280,30 @@ export const simulateNeuroplasticity = async (): Promise<OSState> => {
 };
 
 export const dispatchTask = async (taskDescription: string): Promise<OSState> => {
-    return generateOSState(`
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview", 
+      contents: `
         OP: API_GATEWAY_DISPATCH
         INPUT_TASK: "${taskDescription}"
         
         INSTRUCTIONS:
-        1. Analyze the input task.
-        2. Select the matching FastAPI route from \`FASTAPI_ROUTER_CODE\`.
-        3. Fill \`router_decision.api_route\`, \`router_decision.method\`.
-        4. Select appropriate modules to orchestrate.
-        5. Log the dispatch event.
-    `);
+        1. THINK: Analyze the input task intent and complexity.
+        2. THINK: Select the matching FastAPI route from \`FASTAPI_ROUTER_CODE\`.
+        3. THINK: Determine the orchestration plan (which modules to trigger).
+        4. OUTPUT: Fill \`router_decision.api_route\`, \`router_decision.method\` and \`router_decision.orchestrated_modules\`.
+      `,
+      config: {
+        thinkingConfig: { thinkingBudget: 32768 },
+        systemInstruction: SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json",
+        responseSchema: RESPONSE_SCHEMA
+      }
+    });
+    return { ...JSON.parse(response.text), timestamp: Date.now() };
+  } catch (error) {
+    return createEmergencyState();
+  }
 }
 
 export const triggerSelfEvolution = async (triggerReason: string): Promise<OSState> => {
@@ -368,7 +382,33 @@ export const activateProjectSimulation = async (): Promise<OSState> => {
 }
 
 export const performSystemCheck = async (): Promise<OSState> => generateOSState("System Check");
-export const fineTuneExploitModel = async (d: string): Promise<OSState> => generateOSState(`Fine tune ${d}`);
+
+export const fineTuneExploitModel = async (d: string): Promise<OSState> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-3-pro-preview",
+            contents: `OP: FINE_TUNE_EXPLOIT_MODEL
+            DATASET: "${d}"
+            
+            INSTRUCTIONS:
+            1. THINK: Analyze the provided dataset of successful exploits to identify underlying vulnerability patterns (buffer overflows, race conditions, logic flaws).
+            2. THINK: Strategize on how to mutate these patterns to bypass current WAF/EDR signatures.
+            3. THINK: Generate diverse Proof-of-Concept (PoC) variations for potential newly discovered vulnerabilities.
+            4. ACTION: Simulate the fine-tuning of the 'ExploitRunner' module weights.
+            5. UPDATE: Add the new exploit capabilities and diverse PoC signatures to the 'knowledge_mesh'.
+            `,
+            config: {
+                thinkingConfig: { thinkingBudget: 32768 },
+                systemInstruction: SYSTEM_INSTRUCTION,
+                responseMimeType: "application/json",
+                responseSchema: RESPONSE_SCHEMA
+            }
+        });
+        return { ...JSON.parse(response.text), timestamp: Date.now() };
+    } catch (error) {
+        return createEmergencyState();
+    }
+};
 
 export const runNmapNeuron = async (target: string, mode: string = 'STANDARD'): Promise<OSState> => {
   try {

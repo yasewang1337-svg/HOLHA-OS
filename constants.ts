@@ -627,13 +627,34 @@ class NmapWrapper(BattlefieldBayesianEngine):
 export const SYNAPSE_PROTO_DEFINITION = `syntax = "proto3";
 package holha.synapse;
 
-// --- NEURAL BUS PROTOCOL ---
+// --- NEURAL BUS PROTOCOL v2.2 ---
 // Defines how biological kernels communicate over gRPC/NATS
+// Includes Fluid Context and Legal Governance Framework.
 
 enum AgentProtocol {
   GRPC = 0;
   NATS = 1;
   GOSSIP = 2;
+}
+
+message LegalContext {
+  string authorized_by = 1;    // Kernel ID authorizing this action
+  string policy_ref = 2;       // Reference to Policy Document (e.g. ROE-2025-A)
+  bool kill_switch_active = 3; // Safety Override
+  string risk_level = 4;       // LOW, MEDIUM, HIGH, CRITICAL
+}
+
+message FluidThinking {
+  string context_id = 1;
+  double syndicate_probability = 2; // Target Confidence (0.0 - 1.0)
+  double gray_market_score = 3;     // Dark Web Correlation
+  double adversarial_noise = 4;     // Environment Resistance
+  double response_entropy = 5;      // System Chaos
+  string current_intent = 6;        // e.g. "DEANONYMIZE_ADMIN"
+  
+  // Dynamic confidence bounds (v3.0)
+  double confidence_lower = 7;
+  double confidence_upper = 8;
 }
 
 message AgentMessage {
@@ -653,6 +674,12 @@ message AgentMessage {
     string url = 2;  // MinIO / S3 URL
   }
   Attachment attachment = 8;
+
+  // Fluid Context (The "Subconscious" Metadata)
+  FluidThinking fluid_state = 9;
+  
+  // Legal Governance (The "Superego")
+  LegalContext legal_framework = 10;
 }
 
 service NeuralSynapse {
