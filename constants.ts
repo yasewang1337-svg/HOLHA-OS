@@ -81,6 +81,34 @@ export const BRAIN_STATES = [
   { id: BrainState.ADAPTIVE_STRESS, label: 'COUNTER_ATTACK', color: '#f59e0b' }
 ];
 
+export const THREAT_ACTOR_PROFILES = [
+  {
+    name: "APT-29 (Cozy Bear)",
+    description: "Russian state-sponsored cyber espionage group.",
+    ttps: ["T1003 - OS Credential Dumping", "T1087 - Account Discovery", "T1105 - Ingress Tool Transfer", "T1090 - Proxy", "T1190 - Exploit Public-Facing App"]
+  },
+  {
+    name: "Lazarus Group",
+    description: "North Korean state-sponsored cyber threat group.",
+    ttps: ["T1204 - User Execution", "T1059 - Command and Scripting Interpreter", "T1486 - Data Encrypted for Impact", "T1573 - Encrypted Channel", "T1132 - Data Encoding"]
+  },
+  {
+    name: "FIN7",
+    description: "Financially motivated cybercriminal group.",
+    ttps: ["T1059.001 - PowerShell", "T1027 - Obfuscated Files or Information", "T1003.001 - LSASS Memory", "T1110 - Brute Force", "T1489 - Service Stop"]
+  },
+  {
+    name: "Equation Group",
+    description: "Sophisticated threat actor linked to NSA Tailored Access Operations.",
+    ttps: ["T1546 - Event Triggered Execution", "T1564 - Hide Artifacts", "T1413 - Firmware Corruption", "T1200 - Hardware Additions"]
+  },
+  {
+    name: "APT-41 (Double Dragon)",
+    description: "Chinese state-sponsored espionage group.",
+    ttps: ["T1102 - Web Service", "T1055 - Process Injection", "T1053 - Scheduled Task", "T1078 - Valid Accounts"]
+  }
+];
+
 export const DOCKER_COMPOSE_DEFINITION = `version: '3.9'
 services:
   # --- THE SYNAPSE (Nervous System / 神经中枢) ---
@@ -389,303 +417,311 @@ func (r *CampaignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
     return ctrl.Result{}, nil
 }`;
 
-export const NMAP_NEURON_CODE = `import nmap
+export const NMAP_NEURON_CODE = `
+import nmap
 import json
-import abc
-import math
 import asyncio
-import concurrent.futures
+import random
+import math
+import hashlib
+from datetime import datetime
 
-class ActiveDefenseProtocols:
+class SynapticScanner:
     """
-    AMYGDALA REFLEX: Automated Counter-Measures & Disinformation
+    EVOLVED NMAP NEURON (Motor Cortex) v3.1
+    
+    Features:
+    - Neurotransmitter Modulation (Dopamine/Cortisol/Norepinephrine)
+    - Morphological Camouflage (Decoys, Fragmentation, Timing)
+    - Hebbian Learning Feedback (Reinforce successful paths)
     """
-    @staticmethod
-    def execute_counter_measure(threat_intel, strategy="MIXED"):
-        actions = []
-        
-        # 1. IP Spoofing & Decoy Generation (The "Squid Ink" Defense)
-        if strategy in ["SPOOF", "MIXED"]:
-            # Logic: Generate high-entropy traffic from random source IPs to confuse enemy scanners
-            actions.append({
-                "technique": "IP_SPOOFING",
-                "status": "ACTIVE",
-                "details": "Flooding enemy logs with 5000+ fake source IPs (Scapy)"
-            })
-            
-        # 2. False Positive Injection (The "Hall of Mirrors")
-        if strategy in ["DECOY", "MIXED"]:
-            # Logic: Spin up ephemeral containers that look like vulnerable Windows 2008 servers
-            actions.append({
-                "technique": "HONEYPOT_SPAWN",
-                "status": "DEPLOYED",
-                "details": "Spun up 5 x 'Vulnerable_IIS' pods to poison enemy dataset"
-            })
-            
-        # 3. De-Platforming / Takedown (The "Legal Strike")
-        if threat_intel.get('confidence') > 0.9 or strategy == "TAKEDOWN":
-            # Logic: Auto-generate abuse reports to ISP/Cloud Provider
-            actions.append({
-                "technique": "AUTOMATED_TAKEDOWN",
-                "target": threat_intel.get('source_ip'),
-                "status": "REPORT_FILED",
-                "details": "Abuse report sent to ASN owner via API"
-            })
-            
-        return actions
-
-class BattlefieldBayesianEngine:
-    @staticmethod
-    def calculate_posterior(prior, likelihood_true, likelihood_false, entropy_weight=0.0, adversarial_factor=0.0):
-        """
-        Advanced Bayesian Probabilistic Model for Cyber Battlefield.
-        Incorporates Entropy Dampening, Adversarial Deception Modeling, and Game Theory Volatility.
-        """
-        # 1. Non-Linear Entropy Dampening (Sigmoid Decay)
-        k = 4.0 # Steepness
-        x0 = 0.6 # Midpoint
-        dampening = 1.0 - (1.0 / (1.0 + math.exp(-k * (entropy_weight - x0))))
-        effective_dampening = 0.2 + (dampening * 0.8)
-
-        # 2. Adversarial Deception Modeling (Blue Team AI Counter-Measures)
-        # In hyper-adversarial environments (>0.8), we assume Active Deception (e.g. Honey-Ports).
-        if adversarial_factor > 0.8:
-             # INVERSE LOGIC: "Open" ports are likely traps. "Closed" ports might be hidden.
-             # We penalize "True" likelihoods heavily due to the expectation of deception.
-             effective_true = (likelihood_true * 0.3) 
-             effective_false = (likelihood_false * 1.4) # We trust "Closed" signals slightly more, or treat misses as high danger.
-        elif adversarial_factor > 0.3:
-            # Standard Deception Penalty
-            deception_penalty = adversarial_factor * 0.7
-            effective_true = (likelihood_true - 0.5) * effective_dampening + 0.5
-            effective_true = effective_true * (1.0 - deception_penalty)
-            effective_false = (likelihood_false - 0.5) * effective_dampening + 0.5 + (adversarial_factor * 0.3)
-        else:
-            # Standard Physics
-            effective_true = (likelihood_true - 0.5) * effective_dampening + 0.5
-            effective_false = (likelihood_false - 0.5) * effective_dampening + 0.5
-        
-        # 3. Bayes' Theorem Application
-        numerator = effective_true * prior
-        denominator = numerator + (effective_false * (1.0 - prior))
-        
-        posterior = numerator / denominator if denominator > 0 else 0.0
-        return posterior
-
-    @staticmethod
-    def apply_expert_heuristics(posterior, context):
-        """
-        Expert System V3: Enhanced with Synthetic Response Detection & Chaos Theory.
-        Overrides probabilistic models with rigid tactical doctrine.
-        """
-        final_score = posterior
-        reasons = []
-
-        noise = context.get('adversarial_noise', 0)
-        entropy = context.get('entropy', 0)
-
-        # Rule A: Honey-Port Detection (Standard)
-        if context.get('open_ports_count', 0) > 15 and noise > 0.5:
-            final_score *= 0.1
-            reasons.append("Honeypot Signature Detected (Port Spray)")
-
-        # Rule B: Evasion Paradox (Too Good To Be True)
-        if context.get('evasion_complexity', 0) > 0.8 and posterior > 0.95:
-            final_score = 0.3
-            reasons.append("Evasion Paradox (Target Too Compliant)")
-
-        # Rule C: Schrodinger's Host (Quantum Indeterminacy)
-        if context.get('conflicting_signals', False):
-             final_score = 0.5
-             reasons.append("Schrodinger's Host (OS Conflict)")
-        
-        # Rule D: Black Swan Protocol (High Value, Low Probability)
-        if context.get('is_critical_infra', False) and posterior < 0.3 and posterior > 0.05:
-            final_score = 0.6 
-            reasons.append("Black Swan Protocol (Critical Asset Alert)")
-
-        # NEW Rule E: Synthetic Response Detection (Zero Jitter)
-        # Real networks have jitter. AI-generated responses are often perfectly timed.
-        if context.get('jitter_ms', 10) < 2 and noise > 0.4:
-            final_score *= 0.2
-            reasons.append("Synthetic Response Detected (Zero Jitter)")
-
-        # NEW Rule F: Chaos Anchor (Signal in Noise)
-        # If entropy is high, but we see a persistent strong signal, confidence increases.
-        if entropy > 0.7 and posterior > 0.8:
-            final_score = min(0.99, final_score * 1.15)
-            reasons.append("Chaos Anchor (Strong Signal in High Entropy)")
-
-        return final_score, reasons
-
-class NmapWrapper(BattlefieldBayesianEngine):
     def __init__(self):
         self.nm = nmap.PortScanner()
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+    
+    def regulate_neurotransmitters(self, fluid_state):
+        """
+        Converts raw fluid metrics into synaptic regulators.
+        """
+        # DOPAMINE: Drive / Aggression / Depth
+        dopamine = fluid_state.get('syndicate_probability', 0.1)
+        
+        # CORTISOL: Stress / Threat / Stealth Need
+        cortisol = fluid_state.get('adversarial_noise', 0.1)
+        
+        # NOREPINEPHRINE: Alertness / Speed / Response Time
+        norepinephrine = 1.0 - fluid_state.get('response_entropy', 0.5)
+        
+        return dopamine, cortisol, norepinephrine
 
-    async def scan_target(self, target, args='-sS -T4'):
-        loop = asyncio.get_running_loop()
-        try:
-            result = await loop.run_in_executor(
-                self.executor,
-                lambda: self.nm.scan(target, arguments=args)
-            )
-            return result
-        except Exception as e:
-            return {"error": str(e), "target": target}
+    def construct_morphology(self, dopamine, cortisol, norepinephrine, target):
+        """
+        Builds the Nmap arguments based on the hormonal cocktail.
+        """
+        flags = []
+        timing = 3
+        scan_techniques = []
 
-    async def fire_axon(self, target, mode, context_json):
+        # 1. CORTISOL LOOP (Threat Response)
+        if cortisol > 0.7:
+            # High Threat -> Morphological Camouflage
+            timing = 1 # Sneaky
+            flags.extend(["-f", "--mtu 24", "-D RND:10", "--source-port 53"])
+            scan_techniques.append("STEALTH_FRAGMENTATION")
+        elif cortisol > 0.4:
+            timing = 2
+            flags.extend(["-D RND:3"])
+            scan_techniques.append("DECOY_TRAFFIC")
+        
+        # 2. DOPAMINE LOOP (Reward Seeking)
+        if dopamine > 0.8 and cortisol < 0.6:
+            # High Value + Manageable Threat -> Deep Probe
+            flags.extend(["-A", "--version-all", "--script=vuln,auth,default"])
+            timing = max(timing, 4) # Speed up if safe
+            scan_techniques.append("DEEP_INSPECTION")
+        elif dopamine > 0.5:
+            flags.extend(["-sV", "--version-light"])
+            scan_techniques.append("VERSION_PROBE")
+
+        # 3. NOREPINEPHRINE LOOP (Speed/Responsiveness)
+        if norepinephrine > 0.8 and cortisol < 0.3:
+            # High Alertness + Low Threat -> Blitz
+            timing = 5
+            flags.extend(["--min-rate 1000", "-n", "-Pn"])
+            scan_techniques.append("BLITZ_KRIEG")
+        
+        # Base Protocol
+        flags.append(f"-T{timing}")
+        
+        # Protocol Selection based on Neuro-Balance
+        if cortisol > 0.6:
+            flags.append("-sS") # TCP SYN (Standard Stealth)
+        elif dopamine > 0.9:
+            flags.append("-sU -sT") # UDP + Connect (Noisy but thorough)
+        else:
+            flags.append("-sS")
+
+        cmd = f"nmap {' '.join(flags)} {target}"
+        return cmd, scan_techniques
+
+    async def fire_axon(self, target, mode, context_json, scan_type_override=None):
+        # 1. INGEST FLUID CONTEXT
         context = json.loads(context_json)
-        fluid_state = context.get('fluid_state', {})
+        fluid = context.get('fluid_state', {})
         
-        syndicate_prob = fluid_state.get('syndicate_probability', 0.0)
-        entropy = fluid_state.get('response_entropy', 0.0)
-        evasion_score = fluid_state.get('evasion_complexity', 0.0)
-        noise_level = fluid_state.get('adversarial_noise', 0.0)
+        # 2. REGULATE
+        dopamine, cortisol, norep = self.regulate_neurotransmitters(fluid)
         
-        mode = mode.upper() if mode else 'STANDARD'
-        if mode == 'STEALTH':
-            flags = ['-sS'] 
-        elif mode == 'AGGRESSIVE':
-            flags = ['-sS', '-A', '--version-all'] 
-        else:
-            flags = ['-sS', '-sV'] 
-
-        # DYNAMIC TIMING ADJUSTMENT
-        aggression_metric = (syndicate_prob * 0.7) + (entropy * 0.3)
-        if aggression_metric > 0.8:
-            base_timing = 4 
-        elif aggression_metric > 0.5:
-            base_timing = 3 
-        elif aggression_metric > 0.2:
-            base_timing = 2 
-        else:
-            base_timing = 1 
-
-        # 2. Bayesian Confidence Calculation
-        raw_confidence = self.calculate_posterior(
-            prior=syndicate_prob,
-            likelihood_true=0.9, 
-            likelihood_false=0.1,
-            entropy_weight=entropy,
-            adversarial_factor=noise_level
-        )
+        # 3. CONSTRUCT
+        cmd, techniques = self.construct_morphology(dopamine, cortisol, norep, target)
         
-        # 3. Apply Expert Heuristics
-        # Simulate jitter: Higher adversarial noise usually implies synthetic response (low jitter) in this simulation context.
-        simulated_jitter = 50 * (1.0 - noise_level) 
+        print(f"[NEURON] Synaptic State: D={dopamine:.2f} C={cortisol:.2f} N={norep:.2f}")
+        print(f"[NEURON] Axon Firing: {cmd}")
         
-        heuristic_context = {
-            'adversarial_noise': noise_level,
-            'evasion_complexity': evasion_score,
-            'entropy': entropy,
-            'open_ports_count': 12 + int(noise_level * 10),
-            'conflicting_signals': entropy > 0.7, 
-            'is_critical_infra': syndicate_prob > 0.8,
-            'jitter_ms': simulated_jitter
-        }
-        final_confidence, reasons = self.apply_expert_heuristics(raw_confidence, heuristic_context)
+        # 4. EXECUTE (Simulated for this environment)
+        await asyncio.sleep(1 + (cortisol * 2)) # Stress delays response
         
-        # 4. Adaptive Adjustments
-        if noise_level > 0.6 and base_timing > 2:
-            base_timing = 2
-            reasons.append("Throttling speed due to high noise floor")
+        result, new_intel = self._simulate_neural_response(target, dopamine, cortisol)
+        
+        # 5. HEBBIAN FEEDBACK CALCULATION
+        # Calculate how this result changes the neural weights
+        synaptic_delta = 0.0
+        if "open" in str(result):
+            synaptic_delta += 0.1 * dopamine # Reward success
+        if "filtered" in str(result):
+            synaptic_delta -= 0.2 * cortisol # Punish blockage
             
-        if evasion_score > 0.5:
-            flags.append('-f')
-            flags.append('--mtu 24')
-            reasons.append("Activated Packet Fragmentation")
-            
-        if syndicate_prob > 0.8 and '-sV' not in flags:
-            flags.append('-sV')
-            reasons.append("Forcing Version Scan on HVT")
-            
-        if entropy > 0.6:
-             flags.append('--randomize-hosts')
-             flags.append('--source-port 53')
-             reasons.append("DNS Source Port Spoofing")
+        return json.dumps({
+            "target": target,
+            "timestamp": datetime.now().isoformat(),
+            "morphology": techniques,
+            "command": cmd,
+            "synaptic_feedback": {
+                "delta_weight": synaptic_delta,
+                "neurotransmitter_adjustment": {
+                    "dopamine": 0.05 if synaptic_delta > 0 else -0.02,
+                    "cortisol": 0.1 if synaptic_delta < 0 else -0.05
+                }
+            },
+            "scan_data": result,
+            "extracted_intel": new_intel
+        })
 
-        final_args = f"{' '.join(flags)} -T{base_timing}"
+    def _simulate_neural_response(self, target, dopamine, cortisol):
+        """
+        Generates deterministic but biologically plausible results based on target hash
+        and current hormonal state.
+        """
+        # Seed random with target to make it consistent per target
+        target_hash = int(hashlib.sha256(target.encode()).hexdigest(), 16)
+        random.seed(target_hash)
         
-        print(f"[NEURON] Target: {target} | Mode: {mode}")
-        print(f"[NEURON] Metrics: Synd={syndicate_prob:.2f}, Entropy={entropy:.2f}, Aggression={aggression_metric:.2f}")
-        print(f"[NEURON] Strategy: {final_args}")
-        if reasons:
-            print(f"[NEURON] Adaptive Overrides: {', '.join(reasons)}")
+        base_ports = [22, 80, 443, 3389, 8080, 1433, 3306, 53]
+        open_ports = []
         
-        scan_data = await self.scan_target(target, final_args)
+        # High Cortisol (Stress) leads to "Vision Tunneling" (Missed ports)
+        detection_rate = 1.0 - (cortisol * 0.5)
         
-        scan_data['_meta'] = {
-            'confidence': final_confidence,
-            'reasoning': reasons,
-            'strategy': final_args
+        for p in base_ports:
+            if random.random() > 0.5: # 50% chance port exists
+                if random.random() < detection_rate: # Chance to detect it
+                    state = "open"
+                    # Deep inspection (High Dopamine) yields more metadata
+                    version = f"v{random.randint(1,9)}.{random.randint(0,9)}" if dopamine > 0.6 else ""
+                    open_ports.append({"port": p, "state": state, "version": version})
+        
+        # Construct Nmap-like JSON output
+        result = {
+            "nmap": {
+                "scanstats": {"uphosts": "1", "totalhosts": "1"},
+                "scaninfo": {"error": []}
+            },
+            "scan": {
+                target: {
+                    "hostnames": [{"name": f"node-{target_hash % 100}.cluster.local", "type": "PTR"}],
+                    "tcp": {p['port']: {"state": p['state'], "version": p['version'], "name": "unknown"} for p in open_ports}
+                }
+            }
         }
         
-        return json.dumps(scan_data)
+        # Extract "Intel" for the Knowledge Graph
+        intel = []
+        if 80 in [p['port'] for p in open_ports] or 443 in [p['port'] for p in open_ports]:
+            intel.append({"type": "SERVICE", "value": "WEB_SERVER"})
+        if 3389 in [p['port'] for p in open_ports]:
+             intel.append({"type": "VULN", "value": "RDP_EXPOSED"})
+        
+        return result, intel
+`;
+
+export const ACTIVE_DEFENSE_NEURON_CODE = `
+import json
+import random
+import asyncio
+from datetime import datetime
+
+class ActiveDefenseNeuron:
+    """
+    AMYGDALA DEFENSE MODULE (Limbic System)
+    
+    Bio-Role: The 'Fight or Flight' response mechanism.
+    Function: Executes active counter-measures to neutralize threats or generate noise.
+    """
+    def __init__(self):
+        self.strategies = {
+            'DEPLATFORM': self._exec_abuse_report, # Fight
+            'IP_SPOOF': self._exec_noise_gen,      # Flight (Smoke bomb)
+            'FALSE_POSITIVE': self._exec_decoy     # Camouflage
+        }
+
+    async def fire_axon(self, target, strategy, context_json):
+        context = json.loads(context_json)
+        fluid = context.get('fluid_state', {})
+        
+        # Hormonal triggers
+        cortisol = fluid.get('adversarial_noise', 0.0)
+        
+        # Automatic Reflex
+        if strategy == 'AUTO':
+            if cortisol > 0.8:
+                strategy = 'IP_SPOOF' # High stress -> Hide
+            elif fluid.get('syndicate_probability', 0) > 0.9:
+                strategy = 'DEPLATFORM' # High certainty -> Attack
+            else:
+                strategy = 'FALSE_POSITIVE' # Uncertainty -> Confuse
+        
+        print(f"[AMYGDALA] Cortisol Level: {cortisol:.2f} | Reflex: {strategy}")
+        
+        if strategy in self.strategies:
+            result = await self.strategies[strategy](target)
+            return json.dumps({
+                "module": "mod_active_defense",
+                "status": "ENGAGED",
+                "strategy": strategy,
+                "outcome": result,
+                "feedback": {"delta_adversarial_noise": -0.3} # Relief
+            })
+        return json.dumps({"status": "FAILED", "reason": "INVALID_STRATEGY"})
+
+    async def _exec_abuse_report(self, target):
+        # Simulates generating a legally compliant abuse report
+        return {"action": "Takedown Request sent to Upstream Provider", "ticket_id": f"AB-{random.randint(1000,9999)}"}
+
+    async def _exec_noise_gen(self, target):
+        # Simulates generating chaff traffic
+        return {"action": "Generated 5000 spoofed packets", "signature": "Randomized UDP Flood"}
+
+    async def _exec_decoy(self, target):
+        # Simulates planting fake credentials
+        return {"action": "Injected Canary Token", "token_type": "AWS_SECRET_KEY"}
 `;
 
 export const SYNAPSE_PROTO_DEFINITION = `syntax = "proto3";
 package holha.synapse;
 
-// --- NEURAL BUS PROTOCOL v2.2 ---
-// Defines how biological kernels communicate over gRPC/NATS
-// Includes Fluid Context and Legal Governance Framework.
+// --- NEURAL BUS PROTOCOL v3.0 (Bio-Digital Interface) ---
+// Defines the axon-dendrite communication standard for the Red Team agents.
 
 enum AgentProtocol {
-  GRPC = 0;
-  NATS = 1;
-  GOSSIP = 2;
+  GRPC = 0;    // Fast, direct nerve impulse
+  NATS = 1;    // Broadcast chemical signal (neurotransmitter)
+  GOSSIP = 2;  // Background glial cell maintenance
 }
 
+// LEGAL GOVERNANCE (The "Superego" Layer)
+// Enforces Rules of Engagement (ROE) at the protocol level.
 message LegalContext {
-  string authorized_by = 1;    // Kernel ID authorizing this action
-  string policy_ref = 2;       // Reference to Policy Document (e.g. ROE-2025-A)
-  bool kill_switch_active = 3; // Safety Override
-  string risk_level = 4;       // LOW, MEDIUM, HIGH, CRITICAL
+  string authorized_by_kernel = 1; // e.g., "PREFRONTAL_CORTEX"
+  string policy_ref_id = 2;        // ROE Hash (e.g., "ROE-2025-ALPHA")
+  bool kill_switch_enabled = 3;    // Hardware interrupt flag
+  string risk_assessment = 4;      // "LOW", "MODERATE", "CRITICAL"
+  repeated string approval_chain = 5; // Cryptographic signatures of approval
 }
 
+// FLUID THINKING (The "Subconscious" Stream)
+// Carries probabilistic state and fuzzy logic values along with data.
 message FluidThinking {
   string context_id = 1;
-  double syndicate_probability = 2; // Target Confidence (0.0 - 1.0)
-  double gray_market_score = 3;     // Dark Web Correlation
-  double adversarial_noise = 4;     // Environment Resistance
-  double response_entropy = 5;      // System Chaos
-  string current_intent = 6;        // e.g. "DEANONYMIZE_ADMIN"
   
-  // Dynamic confidence bounds (v3.0)
-  double confidence_lower = 7;
-  double confidence_upper = 8;
+  // Probability Fields (0.0 - 1.0)
+  double syndicate_probability = 2; // Likelihood target is a Syndicate asset
+  double gray_market_score = 3;     // Correlation with underground markets
+  double adversarial_noise = 4;     // Level of active defense encountered
+  double response_entropy = 5;      // Randomness of target responses
+  
+  // Intent & Prediction
+  string current_intent = 6;        // e.g., "DEANONYMIZE", "DISRUPT", "OBSERVE"
+  double confidence_lower = 7;      // Bayesian credible interval lower bound
+  double confidence_upper = 8;      // Bayesian credible interval upper bound
+  
+  // Bias Simulation
+  double cognitive_bias = 9;        // Simulation of overfitting or tunnel vision
 }
 
+// THE NERVE IMPULSE
 message AgentMessage {
   string id = 1;
   int64 timestamp = 2;
   AgentProtocol protocol = 3;
   
-  string from_kernel = 4; // e.g. "PREFRONTAL_CORTEX"
-  string to_kernel = 5;   // e.g. "MOTOR_CORTEX" or "BROADCAST"
+  string from_kernel = 4; 
+  string to_kernel = 5;   
   
-  string topic = 6;       // e.g. "intel.visual.processed"
-  string payload_json = 7; // The operational data
+  string topic = 6;       
+  string payload_json = 7; // The actual operational payload (scan results, exploit data)
   
-  // Multimodal Attachments (v2.0)
+  // Multimodal Attachments
   message Attachment {
     string type = 1; // "IMAGE", "PCAP", "BINARY"
-    string url = 2;  // MinIO / S3 URL
+    string url = 2;  // Object storage reference
   }
   Attachment attachment = 8;
 
-  // Fluid Context (The "Subconscious" Metadata)
-  FluidThinking fluid_state = 9;
-  
-  // Legal Governance (The "Superego")
-  LegalContext legal_framework = 10;
+  // Metadata Layers
+  FluidThinking fluid_state = 9;   // The "Gut Feeling" of the agent
+  LegalContext legal_framework = 10; // The "Laws" binding the agent
 }
 
 service NeuralSynapse {
-  // Point-to-Point Axon Transmission
   rpc FireAxon(AgentMessage) returns (AgentMessage);
-  
-  // Diffuse Modulation (Broadcast)
   rpc ReleaseNeurotransmitter(AgentMessage) returns (stream AgentMessage);
 }`;

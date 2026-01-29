@@ -69,6 +69,7 @@ export interface PolicyAuthority {
     authorized_by_kernel: string;
     policy_ref_id: string;
     assessed_risk: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
+    approval_chain?: string[]; // Cryptographic signatures
 }
 
 export interface DigitalContract {
@@ -90,6 +91,7 @@ export interface FluidState {
     // v3.0 Extensions
     confidence_lower_bound?: number;
     confidence_upper_bound?: number;
+    cognitive_bias?: number;       // AI bias/tunnel vision simulation
 }
 
 export interface FluidContext {
@@ -142,6 +144,13 @@ export interface RouterDecision {
   confidence: number;
   reasoning: string; // AI 出具的中文决策理由
   orchestrated_modules: PipelineModule[];
+  
+  // AGI Governance Fields
+  human_approval_required: boolean;
+  approval_status: 'APPROVED' | 'PENDING' | 'REJECTED';
+  risk_score: number; // 0-100
+  simulation_preview?: string; // "If executed, 40% chance of detection."
+  agi_analogy?: string; // Explainable AI: "This is like checking doorknobs silently."
 }
 
 // --- HOLHA-ZERO 2.0 INFRASTRUCTURE TYPES ---
@@ -194,6 +203,15 @@ export interface KnowledgeNode {
   pocs?: string[]; // e.g. ["CVE-2024-XXXX PoC", "Heap Spray v2"]
 }
 
+export interface CognitiveStream {
+    id: string;
+    color: string;
+    label: string;
+    active: boolean;
+    thought_fragment: string;
+    delta_learning: string;
+}
+
 export interface OSState {
   op_code: string;
   target_profile: string;
@@ -215,6 +233,9 @@ export interface OSState {
   neural_weights: { source: KernelID; target: KernelID; weight: number }[];
   prediction_chain: PredictionNode[];
   router_decision?: RouterDecision;
+
+  // New Cognitive Streams (Parallel Thinking)
+  cognitive_streams?: CognitiveStream[];
 
   mesh_network: {
     traffic_log: AgentMessage[];

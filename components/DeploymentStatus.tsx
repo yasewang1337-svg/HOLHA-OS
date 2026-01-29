@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { OSState, KnowledgeNode } from '../types';
 import { KnowledgeGraph } from './KnowledgeGraph';
-import { runNmapNeuron } from '../services/geminiService';
+import { runNmapNeuron, analyzeNodeRisk } from '../services/geminiService';
+import { THREAT_ACTOR_PROFILES } from '../constants';
 
 interface MeshProps {
   currentOS?: OSState | null;
@@ -12,6 +13,7 @@ interface MeshProps {
 export const DeploymentStatus: React.FC<MeshProps> = ({ currentOS, onUpdateOS }) => {
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
   const [newTTP, setNewTTP] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
 
   const handleScan = async () => {
     if (onUpdateOS) {
@@ -38,6 +40,19 @@ export const DeploymentStatus: React.FC<MeshProps> = ({ currentOS, onUpdateOS })
               setSelectedNode(updatedNode); // Update local selection to reflect changes
           }
       }
+  };
+
+  const handleAIAnalyze = async () => {
+      if (!selectedNode) return;
+      setAnalyzing(true);
+      const result = await analyzeNodeRisk(selectedNode);
+      if (result) {
+          handleUpdateNode({ 
+              threat_actor: result.threat_actor,
+              ttps: Array.from(new Set([...(selectedNode.ttps || []), ...result.ttps]))
+          });
+      }
+      setAnalyzing(false);
   };
 
   const handleAddTTP = () => {
@@ -102,13 +117,49 @@ export const DeploymentStatus: React.FC<MeshProps> = ({ currentOS, onUpdateOS })
                     </div>
 
                     <div className="flex-1 overflow-y-auto pr-1">
-                        {/* Attribution Section */}
-                        <div className="mb-3">
-                            <label className="block text-[9px] text-gray-500 mb-1">THREAT ACTOR ATTRIBUTION</label>
+                        {/* Threat Actor Profiles Section */}
+                        <div className="mb-3 bg-cyber-dark/50 p-2 rounded border border-cyber-purple/20">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-[9px] text-cyber-purple font-bold flex items-center gap-1">
+                                    <span className="w-1 h-1 bg-cyber-purple rounded-full"></span>
+                                    THREAT ACTOR PROFILES
+                                </label>
+                                <button
+                                    onClick={handleAIAnalyze}
+                                    disabled={analyzing}
+                                    className="text-[8px] bg-cyber-purple/20 hover:bg-cyber-purple/40 text-cyber-purple border border-cyber-purple/50 px-1.5 py-0.5 rounded transition-colors flex items-center gap-1"
+                                >
+                                    {analyzing ? <span className="animate-spin">⟳</span> : '✨'} AI_ATTRIB
+                                </button>
+                            </div>
+                            
+                            <select 
+                                className="w-full bg-black/40 border border-gray-700 rounded px-2 py-1 text-cyber-purple text-[9px] focus:border-cyber-purple outline-none mb-2"
+                                onChange={(e) => {
+                                    const profile = THREAT_ACTOR_PROFILES.find(p => p.name === e.target.value);
+                                    if (profile) {
+                                        // Merge new TTPs with existing ones, removing duplicates
+                                        const existingTTPs = selectedNode.ttps || [];
+                                        const mergedTTPs = Array.from(new Set([...existingTTPs, ...profile.ttps]));
+                                        
+                                        handleUpdateNode({ 
+                                            threat_actor: profile.name,
+                                            ttps: mergedTTPs
+                                        });
+                                    }
+                                }}
+                                value=""
+                            >
+                                <option value="" disabled>LOAD KNOWN ACTOR...</option>
+                                {THREAT_ACTOR_PROFILES.map(p => (
+                                    <option key={p.name} value={p.name}>{p.name}</option>
+                                ))}
+                            </select>
+
                             <input 
                                 type="text" 
-                                className="w-full bg-black/40 border border-gray-700 rounded px-2 py-1 text-cyber-purple focus:border-cyber-purple outline-none placeholder-gray-700"
-                                placeholder="UNATTRIBUTED"
+                                className="w-full bg-black/40 border border-gray-700 rounded px-2 py-1 text-gray-300 focus:border-gray-500 outline-none placeholder-gray-600"
+                                placeholder="OR CUSTOM ATTRIBUTION"
                                 value={selectedNode.threat_actor || ''}
                                 onChange={(e) => handleUpdateNode({ threat_actor: e.target.value })}
                             />
@@ -119,14 +170,14 @@ export const DeploymentStatus: React.FC<MeshProps> = ({ currentOS, onUpdateOS })
                             <label className="block text-[9px] text-gray-500 mb-1">MITRE ATT&CK TTPs</label>
                             <div className="flex flex-wrap gap-1 mb-2">
                                 {(selectedNode.ttps || []).map((ttp, idx) => (
-                                    <span key={idx} className="bg-cyber-gray border border-gray-600 px-1.5 py-0.5 rounded text-[9px] text-gray-300 flex items-center gap-1">
+                                    <span key={idx} className="bg-cyber-gray border border-gray-600 px-1.5 py-0.5 rounded text-[9px] text-gray-300 flex items-center gap-1 group">
                                         {ttp}
                                         <button 
                                             onClick={() => {
                                                 const newTTPs = selectedNode.ttps!.filter(t => t !== ttp);
                                                 handleUpdateNode({ ttps: newTTPs });
                                             }}
-                                            className="hover:text-red-400"
+                                            className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                                         >×</button>
                                     </span>
                                 ))}

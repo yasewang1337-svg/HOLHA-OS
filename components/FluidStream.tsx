@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { OSState } from '../types';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -35,9 +34,10 @@ export const FluidStream: React.FC<BioTelemetryProps> = ({ currentOS }) => {
 
   const loop = currentOS.current_fluid_context?.active_loop;
   const authority = currentOS.current_fluid_context?.authority;
+  const streams = currentOS.cognitive_streams || [];
 
   return (
-    <div className="w-full h-full p-4 flex flex-col font-mono bg-cyber-black/80 rounded-xl border border-cyber-blue/20 shadow-[0_0_15px_rgba(0,240,255,0.1)]">
+    <div className="w-full h-full p-4 flex flex-col font-mono bg-cyber-black/80 rounded-xl border border-cyber-blue/20 shadow-[0_0_15px_rgba(0,240,255,0.1)] overflow-y-auto custom-scrollbar">
       
       {/* Header */}
       <div className="flex justify-between items-start mb-4 border-b border-cyber-gray pb-2">
@@ -51,6 +51,57 @@ export const FluidStream: React.FC<BioTelemetryProps> = ({ currentOS }) => {
           <MetricBox label="ADAPTABILITY" value={currentOS.neuroplasticity_index} color="text-purple-400" />
           <MetricBox label="COMPUTE LOAD" value={currentOS.cognitive_load} color="text-blue-400" />
           <MetricBox label="SUCCESS RATE" value={currentOS.dopamine_level} color="text-green-400" />
+      </div>
+
+      {/* MULTI-STREAM THINKING (COGNITIVE EVOLUTION) */}
+      <div className="mb-4 bg-gray-900/50 p-2 rounded border border-gray-700">
+           <div className="text-[10px] text-gray-400 mb-2 uppercase flex justify-between">
+               <span>MULTI-STREAM COGNITION (OUROBOROS)</span>
+               <span className="text-[9px] text-cyber-purple animate-pulse">{streams.length > 0 ? 'ACTIVE' : 'IDLE'}</span>
+           </div>
+           
+           <div className="space-y-2">
+               {streams.length === 0 && (
+                   <div className="text-[9px] text-gray-600 italic">No active thought streams. System running on reflex only.</div>
+               )}
+               {streams.map((stream, idx) => (
+                   <div key={idx} className="flex gap-2 items-start bg-black/40 p-1.5 rounded border border-gray-800">
+                       {/* Stream Indicator Line */}
+                       <div className={`w-0.5 self-stretch ${
+                           stream.id === 'FAST_REFLEX' ? 'bg-blue-500' : 
+                           stream.id === 'DEEP_STRATEGY' ? 'bg-purple-500' : 
+                           'bg-yellow-500'
+                       } rounded-full opacity-80 shadow-[0_0_5px_currentColor]`}></div>
+                       
+                       <div className="flex-1 min-w-0">
+                           <div className="flex justify-between items-baseline mb-0.5">
+                               <span className={`text-[9px] font-bold ${
+                                   stream.id === 'FAST_REFLEX' ? 'text-blue-400' : 
+                                   stream.id === 'DEEP_STRATEGY' ? 'text-purple-400' : 
+                                   'text-yellow-400'
+                               }`}>
+                                   {stream.id === 'FAST_REFLEX' ? '[FAST] REFLEX' : 
+                                    stream.id === 'DEEP_STRATEGY' ? '[DEEP] STRATEGY' : 
+                                    '[EVO] ADAPTATION'}
+                               </span>
+                               {stream.delta_learning && (
+                                   <span className="text-[8px] text-green-400 bg-green-900/20 px-1 rounded border border-green-900/50">
+                                       + MUTATION
+                                   </span>
+                               )}
+                           </div>
+                           <div className="text-[9px] text-gray-300 leading-tight">
+                               {stream.thought_fragment}
+                           </div>
+                           {stream.delta_learning && (
+                               <div className="mt-1 text-[8px] text-yellow-500/80 font-mono pl-2 border-l border-yellow-900/50">
+                                   >> LEARNED: {stream.delta_learning}
+                               </div>
+                           )}
+                       </div>
+                   </div>
+               ))}
+           </div>
       </div>
 
       {/* Governance & Authority */}
@@ -67,7 +118,7 @@ export const FluidStream: React.FC<BioTelemetryProps> = ({ currentOS }) => {
         </div>
       )}
 
-      {/* Cognitive Loop Topology (The "Science" Loop) */}
+      {/* Cognitive Loop Topology */}
       <div className="mb-4 bg-cyber-dark/30 p-2 rounded border border-cyber-gray/20 relative overflow-hidden">
           <div className="text-[10px] text-gray-500 mb-2 uppercase flex justify-between relative z-10">
              <span>Cognitive Loop Topology</span>
@@ -85,7 +136,6 @@ export const FluidStream: React.FC<BioTelemetryProps> = ({ currentOS }) => {
                 );
             })}
          </div>
-         {/* Loop Connector Line */}
          <div className="absolute top-8 left-4 right-4 h-[1px] bg-gray-800 z-0"></div>
          
          {loop && (
@@ -119,18 +169,18 @@ export const FluidStream: React.FC<BioTelemetryProps> = ({ currentOS }) => {
              </div>
              <div>
                  <div className="flex justify-between text-[9px] text-gray-400 mb-1">
-                     <span>GRAY_MARKET_SCORE</span>
-                     <span>{(fluid.gray_market_score * 100).toFixed(0)}%</span>
+                     <span>ADVERSARIAL_NOISE</span>
+                     <span>{(fluid.adversarial_noise * 100).toFixed(0)}%</span>
                  </div>
                  <div className="h-1 bg-gray-800 rounded full overflow-hidden">
-                     <div className="h-full bg-orange-500" style={{ width: `${fluid.gray_market_score * 100}%` }}></div>
+                     <div className={`h-full ${fluid.adversarial_noise > 0.8 ? 'bg-red-500 animate-pulse' : 'bg-orange-500'}`} style={{ width: `${fluid.adversarial_noise * 100}%` }}></div>
                  </div>
              </div>
          </div>
       </div>
 
       {/* EEG Chart */}
-      <div className="flex-1 bg-cyber-dark/50 rounded overflow-hidden relative border border-cyber-gray/30">
+      <div className="flex-1 min-h-[100px] bg-cyber-dark/50 rounded overflow-hidden relative border border-cyber-gray/30">
           <div className="absolute top-2 left-2 text-[9px] text-gray-500">NEURAL FLUX (EEG)</div>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={eegData}>

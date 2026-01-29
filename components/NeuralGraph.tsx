@@ -1,5 +1,19 @@
+
 import React, { useEffect, useRef } from 'react';
-import * as d3 from 'd3';
+import { 
+    select, 
+    forceSimulation, 
+    forceManyBody, 
+    forceCollide, 
+    forceCenter, 
+    forceX, 
+    forceY, 
+    forceLink, 
+    drag, 
+    easeExpOut, 
+    easeLinear,
+    SimulationNodeDatum
+} from 'd3';
 import { OS_KERNELS, INITIAL_NEURAL_LINKS, MODULE_MAPPING } from '../constants';
 import { KernelID, OSState } from '../types';
 
@@ -11,17 +25,11 @@ interface KernelGraphProps {
   battleMode?: boolean;
 }
 
-interface BattleAgent {
+interface BattleAgent extends SimulationNodeDatum {
     id: string;
     team: 'RED' | 'BLUE' | 'GREEN';
     power: number;
     r: number;
-    x?: number;
-    y?: number;
-    fx?: number | null;
-    fy?: number | null;
-    vx?: number;
-    vy?: number;
 }
 
 export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNode, currentOS, onSimulatePlasticity, battleMode = false }) => {
@@ -40,19 +48,22 @@ export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNo
     const isBurstMode = (fluidState?.syndicate_probability || 0) > 0.8;
 
     // Clear previous
-    d3.select(svgRef.current).selectAll("*").remove();
+    select(svgRef.current).selectAll("*").remove();
 
-    const svg = d3.select(svgRef.current)
+    const svg = select(svgRef.current)
       .attr("viewBox", [0, 0, width, height])
       .attr("style", "max-width: 100%; height: auto;");
 
     // Glow Filter
-    const defs = svg.append("defs");
-    const filter = defs.append("filter").attr("id", "glow");
-    filter.append("feGaussianBlur").attr("stdDeviation", "2.5").attr("result", "coloredBlur");
-    const feMerge = filter.append("feMerge");
-    feMerge.append("feMergeNode").attr("in", "coloredBlur");
-    feMerge.append("feMergeNode").attr("in", "SourceGraphic");
+    let defs = svg.select("defs");
+    if (defs.empty()) {
+        defs = svg.append("defs");
+        const filter = defs.append("filter").attr("id", "glow");
+        filter.append("feGaussianBlur").attr("stdDeviation", "2.5").attr("result", "coloredBlur");
+        const feMerge = filter.append("feMerge");
+        feMerge.append("feMergeNode").attr("in", "coloredBlur");
+        feMerge.append("feMergeNode").attr("in", "SourceGraphic");
+    }
 
     // Burst Mode Background Effect
     if (isBurstMode && !battleMode) {
@@ -60,7 +71,7 @@ export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNo
         wrapperRef.current.style.borderColor = "rgba(255, 0, 60, 0.5)";
     } else {
         wrapperRef.current.style.boxShadow = "none";
-        wrapperRef.current.style.borderColor = ""; // Reset to CSS default
+        wrapperRef.current.style.borderColor = ""; 
     }
 
     if (battleMode) {
@@ -81,43 +92,59 @@ export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNo
 
         const agents = battleAgentsRef.current;
         const colorMap = { RED: '#ff003c', BLUE: '#00f0ff', GREEN: '#00ff9d' };
+        
+        // Explosions Layer (Must be created before agents to be behind, or after to be on top)
+        const explosionGroup = svg.append("g").attr("class", "explosions");
 
-        const simulation = d3.forceSimulation(agents as any)
-            .force("charge", d3.forceManyBody().strength(-20))
-            .force("collide", d3.forceCollide().radius((d: any) => d.r + 2))
-            .force("center", d3.forceCenter(width / 2, height / 2).strength(0.05))
-            .force("x", d3.forceX(width/2).strength(0.01))
-            .force("y", d3.forceY(height/2).strength(0.01))
+        // FIX: Define helper BEFORE usage in simulation.on('tick')
+        const spawnExplosion = (x: number, y: number, color: string) => {
+            const particles = Array.from({ length: 8 });
+            explosionGroup.selectAll(".p") // Use a class selector that won't match existing
+                .data(particles)
+                .enter()
+                .append("circle")
+                .attr("cx", x)
+                .attr("cy", y)
+                .attr("r", 2)
+                .attr("fill", color)
+                .transition()
+                .duration(600)
+                .ease(easeExpOut)
+                .attr("cx", () => x + (Math.random() - 0.5) * 50)
+                .attr("cy", () => y + (Math.random() - 0.5) * 50)
+                .attr("opacity", 0)
+                .remove();
+        };
+
+        const simulation = forceSimulation<BattleAgent>(agents)
+            .force("charge", forceManyBody().strength(-20))
+            .force("collide", forceCollide().radius((d: any) => d.r + 2))
+            .force("center", forceCenter(width / 2, height / 2).strength(0.05))
+            .force("x", forceX(width/2).strength(0.01))
+            .force("y", forceY(height/2).strength(0.01))
             .alphaDecay(0); // Never stop moving
 
         const agentGroup = svg.append("g")
             .selectAll("circle")
-            .data(agents, (d: any) => d.id)
+            .data(agents, (d) => d.id)
             .join("circle")
-            .attr("r", (d: any) => d.r)
-            .attr("fill", (d: any) => colorMap[d.team])
+            .attr("r", (d) => d.r)
+            .attr("fill", (d) => colorMap[d.team])
             .attr("filter", "url(#glow)")
             .attr("stroke", "#fff")
             .attr("stroke-width", 1);
-            
-        // Explosions Layer
-        const explosionGroup = svg.append("g").attr("class", "explosions");
 
         // Combat Logic Tick
         simulation.on("tick", () => {
             agentGroup
-                .attr("cx", (d: any) => d.x)
-                .attr("cy", (d: any) => d.y);
+                .attr("cx", (d) => d.x!)
+                .attr("cy", (d) => d.y!);
 
             // Simple Combat Resolution
-            // Check for collisions manually or assume if very close
-            // O(N^2) checks, fine for N=40
-            const survivors: BattleAgent[] = [];
             const deadIds = new Set<string>();
 
             for (let i = 0; i < agents.length; i++) {
                 if (deadIds.has(agents[i].id)) continue;
-                let survived = true;
 
                 for (let j = i + 1; j < agents.length; j++) {
                     if (deadIds.has(agents[j].id)) continue;
@@ -143,47 +170,28 @@ export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNo
                             spawnExplosion(a.x || 0, a.y || 0, colorMap[a.team]);
                             b.power -= a.power * 0.5;
                             b.r += 2;
-                            survived = false;
                         }
                     }
                 }
-                if (survived && !deadIds.has(agents[i].id)) survivors.push(agents[i]);
             }
 
-            if (survivors.length < agents.length) {
+            if (deadIds.size > 0) {
+                const survivors = agents.filter(a => !deadIds.has(a.id));
                 battleAgentsRef.current = survivors;
-                // Re-bind data logic would be needed for smooth exit, 
-                // but for React + D3 simple integration, we let the next render cycle handle strict updates,
-                // or we can manually remove DOM elements here for immediate effect.
+                
+                // Visual Death
                 deadIds.forEach(id => {
                     agentGroup.filter((d: any) => d.id === id)
                         .transition().duration(200)
                         .attr("r", 0)
                         .remove();
                 });
-                simulation.nodes(survivors as any);
+                
+                // Restart sim with new nodes
+                simulation.nodes(survivors);
                 simulation.alpha(1).restart();
             }
         });
-
-        function spawnExplosion(x: number, y: number, color: string) {
-            const particles = Array.from({ length: 8 });
-            explosionGroup.selectAll(".p")
-                .data(particles)
-                .enter()
-                .append("circle")
-                .attr("cx", x)
-                .attr("cy", y)
-                .attr("r", 2)
-                .attr("fill", color)
-                .transition()
-                .duration(600)
-                .ease(d3.easeExpOut)
-                .attr("cx", () => x + (Math.random() - 0.5) * 50)
-                .attr("cy", () => y + (Math.random() - 0.5) * 50)
-                .attr("opacity", 0)
-                .remove();
-        }
 
         return () => {
             simulation.stop();
@@ -226,11 +234,11 @@ export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNo
         }
 
         // Force Directed Layout
-        const simulation = d3.forceSimulation(nodesData as any)
-        .force("link", d3.forceLink(linksData).id((d: any) => d.id).distance(140))
-        .force("charge", d3.forceManyBody().strength(-1200))
-        .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collide", d3.forceCollide().radius(60));
+        const simulation = forceSimulation(nodesData as any)
+        .force("link", forceLink<any, any>(linksData).id((d) => d.id).distance(140))
+        .force("charge", forceManyBody().strength(-1200))
+        .force("center", forceCenter(width / 2, height / 2))
+        .force("collide", forceCollide().radius(60));
 
         // Links (Axons)
         const link = svg.append("g")
@@ -260,7 +268,7 @@ export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNo
         .selectAll("g")
         .data(nodesData)
         .join("g")
-        .call(d3.drag<SVGGElement, any>()
+        .call(drag<SVGGElement, any>()
             .on("start", dragstarted)
             .on("drag", dragged)
             .on("end", dragended));
@@ -269,11 +277,11 @@ export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNo
         // Burst Mode: Rapid Red Pulse
         if (isBurstMode) {
             node.each(function(d: any) {
-                const g = d3.select(this);
+                const g = select(this);
                 const baseR = 25 + (d.activity / 10);
                 
-                // Continuous Rapid Pulse Loop
-                function pulse() {
+                // Continuous Rapid Pulse Loop - using a named function expression to be safe
+                const pulse = () => {
                     g.append("circle")
                      .attr("r", baseR)
                      .attr("fill", "none")
@@ -282,12 +290,12 @@ export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNo
                      .attr("opacity", 1)
                      .transition()
                      .duration(600)
-                     .ease(d3.easeExpOut)
+                     .ease(easeExpOut)
                      .attr("r", baseR + 25)
                      .attr("opacity", 0)
                      .remove()
                      .on("end", pulse); 
-                }
+                };
                 pulse();
             });
         }
@@ -336,6 +344,39 @@ export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNo
         // --- MULTI-DIRECTIONAL PARTICLE SYSTEM ---
         const particles = svg.append("g").attr("class", "particles");
         
+        // Helper function for particle animation
+        const animateParticle = (selection: any, pathData: any, dir: 'fwd' | 'rev') => {
+            const start = dir === 'fwd' ? pathData.source : pathData.target;
+            const end = dir === 'fwd' ? pathData.target : pathData.source;
+            
+            // Speed up in burst mode
+            const duration = isBurstMode 
+                ? (600 + Math.random() * 300) 
+                : (1000 + Math.random() * 500);
+
+            selection
+                .attr("cx", start.x)
+                .attr("cy", start.y)
+                .attr("opacity", 1)
+                .transition()
+                .duration(duration)
+                .ease(easeLinear)
+                .attr("cx", end.x)
+                .attr("cy", end.y)
+                .on("end", function(this: any) {
+                    animateParticle(select(this), pathData, dir);
+                });
+        };
+
+        const spawnParticle = (pathData: any, dir: 'fwd' | 'rev', color: string) => {
+            const particle = particles.append("circle")
+                .attr("r", isBurstMode ? 4 : 3)
+                .attr("fill", color)
+                .attr("filter", "url(#glow)");
+            
+            animateParticle(particle, pathData, dir);
+        };
+
         linksData.forEach((l: any) => {
             const sourceId = l.source.id || l.source;
             const targetId = l.target.id || l.target;
@@ -369,38 +410,6 @@ export const NeuralGraph: React.FC<KernelGraphProps> = ({ onSelectNode, activeNo
                 }
             }
         });
-
-        function spawnParticle(pathData: any, dir: 'fwd' | 'rev', color: string) {
-            const particle = particles.append("circle")
-                .attr("r", isBurstMode ? 4 : 3)
-                .attr("fill", color)
-                .attr("filter", "url(#glow)");
-            
-            animateParticle(particle, pathData, dir);
-        }
-
-        function animateParticle(selection: any, pathData: any, dir: 'fwd' | 'rev') {
-            const start = dir === 'fwd' ? pathData.source : pathData.target;
-            const end = dir === 'fwd' ? pathData.target : pathData.source;
-            
-            // Speed up in burst mode
-            const duration = isBurstMode 
-                ? (600 + Math.random() * 300) 
-                : (1000 + Math.random() * 500);
-
-            selection
-                .attr("cx", start.x)
-                .attr("cy", start.y)
-                .attr("opacity", 1)
-                .transition()
-                .duration(duration)
-                .ease(d3.easeLinear)
-                .attr("cx", end.x)
-                .attr("cy", end.y)
-                .on("end", function(this: any) {
-                    animateParticle(d3.select(this), pathData, dir);
-                });
-        }
 
         simulation.on("tick", () => {
             link
